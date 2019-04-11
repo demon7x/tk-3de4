@@ -40,3 +40,69 @@ class TDE4Launcher(SoftwareLauncher):
 
         return LaunchInformation(exec_path, args, required_env)
 
+    def scan_software(self):
+        """
+        Scan the filesystem for natron executables.
+
+        :return: A list of :class:`SoftwareVersion` objects.
+        """
+
+        try:
+            import rez as _
+        except ImportError:
+            rez_path = self.get_rez_module_root()
+            if not rez_path:
+                raise EnvironmentError('rez is not installed and could not be automatically found. Cannot continue.')
+
+            sys.path.append(rez_path)
+        from rez.package_search import ResourceSearcher , ResourceSearchResultFormatter
+
+
+        searcher = ResourceSearcher()
+        formatter = ResourceSearchResultFormatter()
+        _ ,packages = searcher.search("3de")
+
+        supported_sw_versions = []
+        self.logger.debug("Scanning for 3de executables...")
+        infos = formatter.format_search_results(packages)
+
+        for info in infos:
+            name,version = info[0].split("-")
+            
+
+            software = SoftwareVersion(version,name,"rez_init",self._icon_from_engine())
+            supported_sw_versions.append(software)
+
+        return supported_sw_versions
+
+    def _icon_from_engine(self):
+        """
+        Use the default engine icon as natron does not supply
+        an icon in their software directory structure.
+
+        :returns: Full path to application icon as a string or None.
+        """
+
+        # the engine icon
+        engine_icon = os.path.join(self.disk_location, "icon_256.png")
+        return engine_icon
+
+    def get_rez_module_root(self):
+        
+        
+        command = self.get_rez_root_command()
+        module_path, stderr = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
+
+        module_path = module_path.strip()
+
+        if not stderr and module_path:
+            return module_path
+
+
+
+        return ''
+
+    def get_rez_root_command(self):
+
+        return 'rez-env rez -- printenv REZ_REZ_ROOT'
